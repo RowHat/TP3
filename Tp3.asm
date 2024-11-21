@@ -161,6 +161,6 @@ getblock: #Crea un stack para guardar la dirección $ra (Esto porque se hará uso 
  	addi $sp, $sp, 4	
  	jr $ra
  	
- 	#Prueba AAA
+ 	#Prueba AAAaaa
  	addi $t7, $t7, 1
  	
