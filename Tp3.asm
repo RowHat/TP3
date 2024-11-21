@@ -25,43 +25,85 @@ success: .asciiz "La operación se realizo con exito\n\n"
 
 
 .text 
+.globl main
+main:
+	# initialization scheduler vector
+	la $t0, schedv
+	la $t1, newcaterogy
+	sw $t1, 0($t0)
+	la $t1, nextcategory
+	sw $t1, 4($t0)
+	la $t1, prevcaterogy
+	sw $t1, 8($t0)
+	la $t1, listcategories
+	sw $t1, 12($t0)
+	la $t1, delcaterogy
+	sw $t1, 16($t0)
+	la $t1, newobject
+	sw $t1, 20($t0)
+	la $t1, listobjects
+	sw $t1, 24($t0)
+	la $t1, delobject
+	sw $t1, 28($t0)
+	
+main_loop:
+	# Mostrar menu
+	jal menu_display
+	beqz $v0, main_end	# Si usuario ingresa 0 se termina.
+	addi $v0, $v0, -1	# dec menu option
+	sll $v0, $v0, 2         # Multiplica la opcion de menu por 4
+	la $t0, schedv		# Carga dirección de la etiqueta en $t0
+	add $t0, $t0, $v0	# Coloca en $t0 el valor de $v0
+	lw $t1, ($t0)		# Carga en $t1 el primer valor de $t0
+    	la $ra, main_ret 	# save return address
+    	jr $t1			# call menu subrutine
+    	
+main_ret:
+    j main_loop		
 
-main: 
-	la $t0, schedv		 # initialization scheduler vector
- 	la $t1, newcaterogy
- 	sw $t1, 0($t0)
- 	la $t1, nextcategory
- 	sw $t1, 4($t0)
-#CONTINUAR
+main_end:
+	j done
+	
+menu_display:
+	# write your code
+	# print_label(menu)
+	# read_int
+	# test if invalid option go to L1
+	#bgt $v0, 8, #menu_display_L1
+	#bltz $v0, #menu_display_L1
+	# else return
+	jr $ra
+	# print error 101 and try again
+menu_display_L1:
+	#print_error(101)
+	j menu_display
+	
 
 smalloc:
- 	lw $t0, slist	#Carga la etiqueta de la lista en t0	
- 	beqz $t0, sbrk	#Evalúa si la lista está vacía, En caso de estar vacía salta a sbrk
- 	move $v0, $t0	#Copia la dirección del nodo 
- 	lw $t0, 12($t0) 
- 	sw $t0, slist
+ 	lw $t0, slist	# Carga la etiqueta de la lista en t0	
+ 	beqz $t0, sbrk	# Evalúa si la lista está vacía, En caso de estar vacía salta a sbrk
+ 	move $v0, $t0	# Copia en $v0 el contenido de $t0
+ 	lw $t0, 12($t0) # Carga en $t0 la dirección al siguiente nodo
+ 	sw $t0, slist	# Actualiza slist con la nueva dirección(puntero al siguiente nodo)
  	jr $ra
 sbrk:
  	li $a0, 16	 # Tamaño de nodo 4 Words, 16 bytes
  	li $v0, 9	 # Solicita sbrk
- 	syscall		 # Devuelve la dirección del nodo en v0
+ 	syscall		 # Devuelve la dirección del nodo en $v0
  	jr $ra
 
 sfree:
- 	lw $t0, slist
+ 	lw $t0, slist	#Carga en $t0 ???
  	sw $t0, 12($a0)
  	sw $a0, slist	 # $a0 node address in unused list
  	jr $ra
-
-
-
 # EJEMPLO Newcategory
 newcaterogy:
 	addiu $sp, $sp, -4
  	sw $ra, 4($sp)
  	la $a0, catName	   	# input category name
  	jal getblock
- 	move $a2, $v0 	  	# $a2 = *char to category name
+ 	move $a2, $v0 	  	# $a2 = Puntero al nombre de la categoría
  	la $a0, cclist 		# $a0 = list
  	li $a1, 0 		# $a1 = NULL
  	jal addnode
@@ -74,6 +116,35 @@ newcategory_end:
  	lw $ra, 4($sp)
  	addiu $sp, $sp, 4
  	jr $ra
+ 	
+nextcategory:
+	# write your code
+	jr $ra
+
+prevcaterogy:
+	# write your code
+	jr $ra
+
+listcategories:
+	# write your code
+	jr $ra
+
+delcaterogy:
+	# write your code
+	jr $ra
+
+newobject:
+	# write your code
+	jr $ra
+
+listobjects:
+	# write your code
+	jr $ra
+
+delobject:
+	# write your code
+	jr $ra
+
 # "ANEXO"
 
 # a0: list address
@@ -83,28 +154,28 @@ newcategory_end:
 addnode:
  	addi $sp, $sp, -8	#Solicita 2 words
  	sw $ra, 8($sp)		#Guarda la dirección de $ra en el stack
- 	sw $a0, 4($sp)		#Guarda $a0 en el otro word(?
+ 	sw $a0, 4($sp)		#Guarda $a0 el puntero de la lista
  	jal smalloc		
- 	sw $a1, 4($v0) 		#set node content
- 	sw $a2, 8($v0)
- 	lw $a0, 4($sp)
- 	lw $t0, ($a0) 	# first node address
+ 	sw $a1, 4($v0) 		#Guarda puntero de la otra categoría o ID del objeto
+ 	sw $a2, 8($v0)		#Guarda nombre.
+ 	lw $a0, 4($sp)		#Devuelve puntero a $a0
+ 	lw $t0, ($a0) 		#Carga en $t0 el primer bloque del nodo (Puntero al anterior nodo)
  	beqz $t0, addnode_empty_list
 
 addnode_to_end:
  	lw $t1, ($t0) # last node address
 # update prev and next pointers of new node
- 	sw $t1, 0($v0)
- 	sw $t0, 12($v0)
+ 	sw $t1, 0($v0)		#Nodo anterior(?
+ 	sw $t0, 12($v0)		#Nodo siguiente(?
 # update prev and first node to new node
  	sw $v0, 12($t1)
  	sw $v0, 0($t0)
  	j addnode_exit
 
 addnode_empty_list:
- 	sw $v0, ($a0)
- 	sw $v0, 0($v0)
- 	sw $v0, 12($v0)
+ 	sw $v0, ($a0)	#Guarda $v0 en el primer bloque de $a0 (Puntero al anterior nodo)
+ 	sw $v0, 0($v0)	#Guarda $v0 en primer bloque de $v0 (Puntero al anterior nodo)
+ 	sw $v0, 12($v0)	#Guarda $v0 en el último bloque de $v0 (Puntero al siguiente nodo)
 
 addnode_exit:
  	lw $ra, 8($sp)
@@ -142,26 +213,26 @@ delnode_exit:
  # a0: msg to ask
  # v0: block address allocated with string
 
-getblock: #Crea un stack para guardar la dirección $ra (Esto porque se hará uso de otros saltos y evitará perder el $ra original)
- 	addi $sp, $sp, -4
+getblock: 
+	addi $sp, $sp, -4
  	sw $ra, 4($sp)
 #Imprimir en pantalla el texto 	
  	li $v0, 4
  	syscall
 #Creación de espacio en memoria
  	jal smalloc	 	
- 	move $a0, $v0	 		
+ 	move $a0, $v0	 #Carga en $a0,la dirección de memoria creada en smalloc para almacenar el texto		
 #Lectura de String
  	li $a1, 16	#Establece 16 carateres como máximo máximo
  	li $v0, 8	# Llamada para leer cadena de texto ingresados por el usuario
  	syscall 	
- 	move $v0, $a0
+ 	move $v0, $a0	# $
 #Recupera la dirección de $ra original y devuelve el espacio solicitado	
  	lw $ra, 4($sp)
  	addi $sp, $sp, 4	
  	jr $ra
- 	
- 	#Prueba AAAaaa
- 	addi $t7, $t7, 1
- 	#ACHÚ
- 	
+ 
+ 
+done:
+	li $v0, 10
+	syscall
