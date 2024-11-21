@@ -34,24 +34,17 @@ main:
  	sw $t1, 4($t0)
 #CONTINUAR
 
-
-#Gestión de memoria
-# 1 2 3 4 - circulares
-# 1 2 3 4 - 1 2 3 4
-# 1     1 - 1      1
-# 
 smalloc:
- 	lw $t0, slist	
- 	beqz $t0, sbrk
- 	move $v0, $t0
+ 	lw $t0, slist	#Carga la etiqueta de la lista en t0	
+ 	beqz $t0, sbrk	#Evalúa si la lista está vacía, En caso de estar vacía salta a sbrk
+ 	move $v0, $t0	#Copia la dirección del nodo 
  	lw $t0, 12($t0) 
  	sw $t0, slist
  	jr $ra
-
 sbrk:
- 	li $a0, 16	 # node size fixed 4 words
- 	li $v0, 9
- 	syscall		 # return node address in v0
+ 	li $a0, 16	 # Tamaño de nodo 4 Words, 16 bytes
+ 	li $v0, 9	 # Solicita sbrk
+ 	syscall		 # Devuelve la dirección del nodo en v0
  	jr $ra
 
 sfree:
@@ -63,9 +56,6 @@ sfree:
 
 
 # EJEMPLO Newcategory
-
-
-
 newcaterogy:
 	addiu $sp, $sp, -4
  	sw $ra, 4($sp)
@@ -84,10 +74,6 @@ newcategory_end:
  	lw $ra, 4($sp)
  	addiu $sp, $sp, 4
  	jr $ra
-
-
-
-
 # "ANEXO"
 
 # a0: list address
@@ -156,18 +142,15 @@ delnode_exit:
  # a0: msg to ask
  # v0: block address allocated with string
 
-getblock:
-#Crea un stack para guardar la dirección $ra 
-#(Esto porque se hará uso de otros saltos y evitará perder el $ra original)
+getblock: #Crea un stack para guardar la dirección $ra (Esto porque se hará uso de otros saltos y evitará perder el $ra original)
  	addi $sp, $sp, -4
  	sw $ra, 4($sp)
 #Imprimir en pantalla el texto 	
  	li $v0, 4
  	syscall
 #Creación de espacio en memoria
- 	jal smalloc	
- 	
- 	move $a0, $v0		
+ 	jal smalloc	 	
+ 	move $a0, $v0	 		
 #Lectura de String
  	li $a1, 16	#Establece 16 carateres como máximo máximo
  	li $v0, 8	# Llamada para leer cadena de texto ingresados por el usuario
@@ -177,3 +160,7 @@ getblock:
  	lw $ra, 4($sp)
  	addi $sp, $sp, 4	
  	jr $ra
+ 	
+ 	#Prueba AAA
+ 	addi $t7, $t7, 1
+ 	
