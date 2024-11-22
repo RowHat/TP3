@@ -15,7 +15,7 @@ menu: .ascii "\nColecciones de objetos categorizados\n"
  .ascii "8-Borrar objeto de la categoria\n"
  .ascii "0-Salir\n"
  .asciiz "Ingrese la opcion deseada:\n"
- .asciiz ">"
+simbolo: .asciiz "\n> "
 error: .asciiz "Error: "
 return: .asciiz "\n"
 catName: .asciiz "\nIngrese el nombre de una categoria: "
@@ -177,7 +177,43 @@ error202:			#Error202: solo una categoría
 
 
 listcategories:
-	# Continuar
+	lw $t0, cclist		# Cargamos la lista de las categorías 
+	beqz $t0, error301	# Si no está creada la lista saltar a error301
+	move $t1, $t0		# Copia de dirección del nodo inicial
+		
+	li $v0, 4		# Imprimir en pantalla
+	la $a0, simbolo		# "> "
+	syscall
+	
+	li $v0, 4		# Imprimir en pantalla
+	lw $a0, 8($t0)		# "Nombre de la categoría actual"
+	syscall
+	
+	lw $t0, 12($t0)		# Actualiza el puntero al siguiente nodo
+	
+bucle: 	
+	beq $t0, $t1 finlistado	#Si coinciden las direcciones salta al final
+	
+	li $v0, 4		# Imprimir en pantalla
+	lw $a0, 8($t0)		# Muestra en pantalla el nombre la seleccionada categoría
+	syscall
+	
+	lw $t0, 12($t0)		# Actualiza el puntero al siguiente nodo
+	
+	j bucle
+
+error301:			# Error 301, no existen categorías
+	li $v0, 4		# Muestra en pantalla mensaje
+	la $a0, error		# Carga la etiqueta de "Error: "
+	syscall
+	li $v0, 1		# Muestra en pantalla el número
+	li $a0, 301		# Carga el número del error "301"
+	syscall
+	jr $ra
+
+
+finlistado:
+
 	jr $ra
 
 delcaterogy:
