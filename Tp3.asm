@@ -3,7 +3,7 @@ slist: .word 0
 cclist: .word 0
 wclist: .word 0
 schedv: .space 32
-menu: .ascii "Colecciones de objetos categorizados\n"
+menu: .ascii "\nColecciones de objetos categorizados\n"
  .ascii "====================================\n"
  .ascii "1-Nueva categoria\n"
  .ascii "2-Siguiente categoria\n"
@@ -14,11 +14,12 @@ menu: .ascii "Colecciones de objetos categorizados\n"
  .ascii "7-Listar objetos de la categoria\n"
  .ascii "8-Borrar objeto de la categoria\n"
  .ascii "0-Salir\n"
- .asciiz "Ingrese la opcion deseada: "
+ .asciiz "Ingrese la opcion deseada:\n"
+ .asciiz ">"
 error: .asciiz "Error: "
 return: .asciiz "\n"
 catName: .asciiz "\nIngrese el nombre de una categoria: "
-selCat: .asciiz "\nSe ha seleccionado la categoria:"
+selCat: .asciiz "\nSe ha seleccionado la categoria: "
 idObj: .asciiz "\nIngrese el ID del objeto a eliminar: "
 objName: .asciiz "\nIngrese el nombre de un objeto: "
 success: .asciiz "La operación se realizo con exito\n\n"
@@ -67,20 +68,33 @@ main_end:
 menu_display:
 	# Continuar
 	# print_label(menu)
+	li $v0, 4
+	la $a0, menu
+	syscall
 	# read_int
+	li $v0, 5 
+	syscall
 	# test if invalid option go to L1
+	bltz $v0, menu_display_L1
+	bgt $v0, 8, menu_display_L1
 	#bgt $v0, 8, #menu_display_L1
 	#bltz $v0, #menu_display_L1
 	# else return
 	jr $ra
 	# print error 101 and try again
 menu_display_L1:
-	#print_error(101)
-	j menu_display
-	
+    	# Imprimir mensaje de error
+    	li $v0, 4	
+    	la $a0, error	
+    	syscall
+    
+    	li $v0, 4	
+    	la $a0, return	
+    	syscall
+    	j menu_display
 
 smalloc:
- 	lw $t0, slist	# Carga la etiqueta de la lista en t0	
+ 	lw $t0, slist	# Carga en t0 la etiqueta de la lista 	
  	beqz $t0, sbrk	# Evalúa si la lista está vacía, En caso de estar vacía salta a sbrk
  	move $v0, $t0	# Copia en $v0 el contenido de $t0
  	lw $t0, 12($t0) # Carga en $t0 la dirección al siguiente nodo
@@ -91,19 +105,18 @@ sbrk:
  	li $v0, 9	 # Solicita sbrk
  	syscall		 # Devuelve la dirección del nodo en $v0
  	jr $ra
-
 sfree:
- 	lw $t0, slist	#Carga en $t0 ???
- 	sw $t0, 12($a0)
- 	sw $a0, slist	 # $a0 node address in unused list
- 	jr $ra
-# EJEMPLO Newcategory
+ 	lw $t0, slist		# Carga en $t0 el primer valor de slist
+ 	sw $t0, 12($a0)		# Guarda el valor en el siguiente nodo
+ 	sw $a0, slist		# Guarda Dirección de Nodo $a0 en una lista sin uso
+ 	jr $ra		
+ 	
 newcaterogy:
 	addiu $sp, $sp, -4
- 	sw $ra, 4($sp)
- 	la $a0, catName	   	# input category name
- 	jal getblock
- 	move $a2, $v0 	  	# $a2 = Puntero al nombre de la categoría
+ 	sw $ra, 4($sp)		
+ 	la $a0, catName	   	# Texto: "Ingrese el nombre de una categoría"
+ 	jal getblock		# Bloque de texto para cargar nombre de categoría u objeto
+ 	move $a2, $v0 	  	# $a2 = Puntero al nombre de la categoría (Utilizará addnode)
  	la $a0, cclist 		# $a0 = list
  	li $a1, 0 		# $a1 = NULL
  	jal addnode
@@ -118,12 +131,50 @@ newcategory_end:
  	jr $ra
  	
 nextcategory:
-	# Continuar
-	jr $ra
+	lw $t0, wclist 		# Carga en $t0 el valor de wclist
+	beqz $t0, error201 	# verifica si la lista esta creada
+	lw $t1, 12($t0)  	# carga el puntero al nodo siguiente
+	beq $t0, $t1 error202  	# Si ambos registros son la misma categoría Salto a error202
+	j fincategory
 
 prevcaterogy:
-	# Continuar
+	lw $t0, wclist		# Carga en $t0 el valor de wclist
+	beqz $t0, error201 	# verifica si la lista esta creada
+	lw $t1, 0($t0)  	# Carga en $t1 el puntero al nodo anterior
+	beq $t0, $t1 error202   # Si ambos registros son la misma categoría Salto a error202
+	j fincategory
+
+fincategory:
+	li $v0, 4		# Llamada a sistema para mostrar en pantalla
+	la $a0, selCat		# "\nSe ha seleccionado la categoria:"
+	syscall	
+	sw $t1, wclist		# Actualiza la dirección actual de la lista
+        lw $a0, 8($t1)		# Muestra en pantalla el nombre de la categoría actual
+        li $v0, 4		# Llamada a sistema para mostrar en pantalla
+        syscall
+        la $a0, return		#"\n"
+        li $v0, 4		# Llamada a sistema para mostrar en pantalla
+        syscall
+	jr $ra		
+
+error201:			#Error 201, no hay categoria
+	li $v0, 4		#Muestra en pantalla mensaje
+	la $a0, error		#Carga la etiqueta de "Error: "
+	syscall
+	li $v0, 1		#Muestra en pantalla el número
+	li $a0, 201		#Carga el número del error "201"
+	syscall
 	jr $ra
+    
+error202:			#Error202: solo una categoría 
+	li $v0, 4
+	la $a0, error		#Carga la etiqueta de "Error: "
+	syscall
+	li $v0, 1		#Muestra en pantalla el número
+	li $a0, 202		#Carga el número del error "202"
+	syscall
+	jr $ra
+
 
 listcategories:
 	# Continuar
@@ -154,7 +205,7 @@ delobject:
  # a1: NULL if category, node address if object
  # v0: node address added
 
-addnode:
+addnode:#gestión de las listas enlazadas, agrega elementos a las listas de categorías u objetos
  	addi $sp, $sp, -8	#Solicita 2 words
  	sw $ra, 8($sp)		#Guarda la dirección de $ra en el stack
  	sw $a0, 4($sp)		#Guarda $a0 el puntero de la lista
@@ -163,7 +214,7 @@ addnode:
  	sw $a2, 8($v0)		#Guarda nombre.
  	lw $a0, 4($sp)		#Devuelve puntero a $a0
  	lw $t0, ($a0) 		#Carga en $t0 el primer bloque del nodo (Puntero al anterior nodo)
- 	beqz $t0, addnode_empty_list
+ 	beqz $t0, addnode_empty_list #En caso de que la lista enlazada esté vacía saltar
 
 addnode_to_end:
  	lw $t1, ($t0) # last node address
@@ -188,10 +239,10 @@ addnode_exit:
  # a1: list address where node is deleted
 
 delnode:
- 	addi $sp, $sp, -8
- 	sw $ra, 8($sp)
- 	sw $a0, 4($sp)
- 	lw $a0, 8($a0) 	# get block address
+ 	addi $sp, $sp, -8	# Solicitud de dos words
+ 	sw $ra, 8($sp)		#Primer espacio paara $ra
+ 	sw $a0, 4($sp)		# Guardamos $a0 en el siguiente espacio
+ 	lw $a0, 8($a0) 		# get block address #Borra el nombre de categoría u objeto
  	jal sfree 	# free block
  	lw $a0, 4($sp) 	# restore argument a0
  	lw $t0, 12($a0) # get address to next node of a0 node
@@ -217,19 +268,21 @@ delnode_exit:
  # v0: block address allocated with string
 
 getblock: 
+#Asigna un bloque de memoria para almacenar la cadena de texto.
+#Este bloque se utilizará para guardar el nombre de la categoría u objeto
 	addi $sp, $sp, -4
- 	sw $ra, 4($sp)
-#Imprimir en pantalla el texto 	
- 	li $v0, 4
+ 	sw $ra, 4($sp)		# Guarda $ra para más adelante
+
+  	li $v0, 4		#Imprimir en pantalla el texto 	
  	syscall
-#Creación de espacio en memoria
- 	jal smalloc	 	
- 	move $a0, $v0	 #Carga en $a0,la dirección de memoria creada en smalloc para almacenar el texto		
+ 	jal smalloc	 #Creación de espacio en memoria	
+ 	move $a0, $v0	 # $v0 contiene la dirección solicitada por smalloc, Al moverla en $a0 este espacio se utilizará para guardar aquí adentro toda la cadena de texto (Max 16 caracteres)	
+ 			# Guardará en el espacio creado la cadena de texto del usuario (Máx 16 Caracteres)	
 #Lectura de String
- 	li $a1, 16	#Establece 16 carateres como máximo máximo
+ 	li $a1, 16	# Establece 16 carateres como máximo máximo
  	li $v0, 8	# Llamada para leer cadena de texto ingresados por el usuario
  	syscall 	
- 	move $v0, $a0	# $
+ 	move $v0, $a0	# Clona en $v0 el valor de $a0
 #Recupera la dirección de $ra original y devuelve el espacio solicitado	
  	lw $ra, 4($sp)
  	addi $sp, $sp, 4	
