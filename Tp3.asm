@@ -117,12 +117,16 @@ newcaterogy:
  	la $a0, catName	   	# Texto: "Ingrese el nombre de una categoría"
  	jal getblock		# Bloque de texto para cargar nombre de categoría u objeto
  	move $a2, $v0 	  	# $a2 = Puntero al nombre de la categoría (Utilizará addnode)
+ 	
  	la $a0, cclist 		# $a0 = list
- 	li $a1, 0 		# $a1 = NULL
- 	jal addnode
+ 	li $a1, 0 		# $a1 = NULL ($a1 es el segundo bloque del nodo)
+ 	jal addnode		
+ 	
  	lw $t0, wclist
- 	bnez $t0, newcategory_end
- 	sw $v0, wclist 		# update working list if was NULL
+ 	
+ 	bnez $t0, newcategory_end #Si tiene algo saltar a newcategory_end
+ 	
+ 	sw $v0, wclist 		# Actualiza la dirección de wclist si esta era NULL/0
 
 newcategory_end:
  	li $v0, 0	 	# return success
@@ -155,6 +159,8 @@ fincategory:
         la $a0, return		#"\n"
         li $v0, 4		# Llamada a sistema para mostrar en pantalla
         syscall
+	
+	li $v0, 0	 	# return success
 	jr $ra		
 
 error201:			#Error 201, no hay categoria
@@ -175,9 +181,9 @@ error202:			#Error202: solo una categoría
 	syscall
 	jr $ra
 
-
+###
 listcategories:
-	lw $t0, cclist		# Cargamos la lista de las categorías 
+	lw $t0, wclist		# Cargamos la lista de las categorías 
 	beqz $t0, error301	# Si no está creada la lista saltar a error301
 	move $t1, $t0		# Copia de dirección del nodo inicial
 		
@@ -213,19 +219,60 @@ error301:			# Error 301, no existen categorías
 
 
 finlistado:
-
+	li $v0, 0	 	# return success
 	jr $ra
+
+###
 
 delcaterogy:
 	# Continuar
 	jr $ra
-
+#---------------------------OBRERO TRABAJANDO------------------------------------------#
 newobject:
 	# Continuar
-	jr $ra
+	addiu $sp, $sp, -4	#Solicita espacio en el Stack
+ 	sw $ra, 4($sp)		#Almacena $ra
+ 	
+ 	lw $t0, wclist 		# $t0 = wclist
+ 	beqz $t0, error501	# Si la lista de objetos está vacía: Error501		
+ 	
+ 	la $a0, objName	   	# Texto: "\nIngrese el nombre de un objeto: "
+ 	jal getblock		# Bloque de texto para cargar nombre de categoría u objeto
+ 	move $a2, $v0 	  	# $a2 = Puntero al bloque nuevo (Utilizará addnode)
 
+	la $a0, 4($t0)		#Carga en $a0 el puntero al segundo bloque(Puntero a ID)
+	lw $t1, ($a0)		#Carga en $t1 el contenido de dicho segundo bloque
+	
+	beqz $t1, primerObjeto	#Evalúa si ese contendio es null settear 1 al ID, sinó sumar sumar 1 a $a1
+	addi $a1, $a1, 1	#Si No es null simplemente hace +1 al ID 
+	jal addnode		#Creación de nodo
+	j finObjeto		#Salto al final de objeto
+
+error501:			# Error 501, no existen categorías		
+	li $v0, 4		# Muestra en pantalla mensaje
+	la $a0, error		# Carga la etiqueta de "Error: "
+	syscall
+	li $v0, 1		# Muestra en pantalla el número
+	li $a0, 501		# Carga el número del error "501"
+	syscall
+	jr $ra
+		
+primerObjeto:
+	li $a1, 1		#Establece el primer ID a 1
+	jal addnode		#Creación de nodo
+
+finObjeto:	
+	lw $ra, 4($sp)		#Devuelve el $ra original
+	addiu $sp, $sp, 4	#Devuelve memoria
+	
+	li $v0, 0		# return success
+	jr $ra
+	
+#---------------------FIN DE TRABAJO DE OBRERO------------------------------------------#
 listobjects:
 	# Continuar
+	
+	
 	jr $ra
 
 delobject:
@@ -237,26 +284,31 @@ delobject:
 
 # "ANEXO"
 
-# a0: list address
- # a1: NULL if category, node address if object
- # v0: node address added
+# a0: Puntero de la etiqueta  // list adress
+# a1: Identificador o puntero a otra listaNULL if category, node address if object
+# a2: Puntero al nombre // *char to category name
+# v0: node address added
 
 addnode:#gestión de las listas enlazadas, agrega elementos a las listas de categorías u objetos
  	addi $sp, $sp, -8	#Solicita 2 words
  	sw $ra, 8($sp)		#Guarda la dirección de $ra en el stack
  	sw $a0, 4($sp)		#Guarda $a0 el puntero de la lista
+ 	
  	jal smalloc		
+ 	
  	sw $a1, 4($v0) 		#Guarda puntero de la otra categoría o ID del objeto
  	sw $a2, 8($v0)		#Guarda nombre.
- 	lw $a0, 4($sp)		#Devuelve puntero a $a0
+
+  	lw $a0, 4($sp)		#Devuelve puntero a $a0
  	lw $t0, ($a0) 		#Carga en $t0 el primer bloque del nodo (Puntero al anterior nodo)
+
  	beqz $t0, addnode_empty_list #En caso de que la lista enlazada esté vacía saltar
 
 addnode_to_end:
  	lw $t1, ($t0) # last node address
 # update prev and next pointers of new node
- 	sw $t1, 0($v0)		#Nodo anterior(?
- 	sw $t0, 12($v0)		#Nodo siguiente(?
+ 	sw $t1, 0($v0)		#Nodo anterior
+ 	sw $t0, 12($v0)		#Nodo siguiente
 # update prev and first node to new node
  	sw $v0, 12($t1)
  	sw $v0, 0($t0)
@@ -311,9 +363,10 @@ getblock:
 
   	li $v0, 4		#Imprimir en pantalla el texto 	
  	syscall
+ 	
  	jal smalloc	 #Creación de espacio en memoria	
  	move $a0, $v0	 # $v0 contiene la dirección solicitada por smalloc, Al moverla en $a0 este espacio se utilizará para guardar aquí adentro toda la cadena de texto (Max 16 caracteres)	
- 			# Guardará en el espacio creado la cadena de texto del usuario (Máx 16 Caracteres)	
+# Guardará en el espacio creado la cadena de texto del usuario (Máx 16 Caracteres)	
 #Lectura de String
  	li $a1, 16	# Establece 16 carateres como máximo máximo
  	li $v0, 8	# Llamada para leer cadena de texto ingresados por el usuario
