@@ -23,6 +23,7 @@ selCat: .asciiz "\nSe ha seleccionado la categoria: "
 idObj: .asciiz "\nIngrese el ID del objeto a eliminar: "
 objName: .asciiz "\nIngrese el nombre de un objeto: "
 success: .asciiz "La operación se realizo con exito\n\n"
+puntoespacio: .asciiz ". "
 
 
 .text 
@@ -30,15 +31,15 @@ success: .asciiz "La operación se realizo con exito\n\n"
 main:
 	# initialization scheduler vector
 	la $t0, schedv
-	la $t1, newcaterogy
+	la $t1, newcategory
 	sw $t1, 0($t0)
 	la $t1, nextcategory
 	sw $t1, 4($t0)
-	la $t1, prevcaterogy
+	la $t1, prevcategory
 	sw $t1, 8($t0)
 	la $t1, listcategories
 	sw $t1, 12($t0)
-	la $t1, delcaterogy
+	la $t1, delcategory
 	sw $t1, 16($t0)
 	la $t1, newobject
 	sw $t1, 20($t0)
@@ -87,7 +88,11 @@ menu_display_L1:
     	li $v0, 4	
     	la $a0, error	
     	syscall
-    
+    	
+    	li $v0, 1
+    	la $a0, 101
+    	syscall
+    	
     	li $v0, 4	
     	la $a0, return	
     	syscall
@@ -100,6 +105,7 @@ smalloc:
  	lw $t0, 12($t0) # Carga en $t0 la dirección al siguiente nodo
  	sw $t0, slist	# Actualiza slist con la nueva dirección(puntero al siguiente nodo)
  	jr $ra
+
 sbrk:
  	li $a0, 16	 # Tamaño de nodo 4 Words, 16 bytes
  	li $v0, 9	 # Solicita sbrk
@@ -111,9 +117,10 @@ sfree:
  	sw $a0, slist		# Guarda Dirección de Nodo $a0 en una lista sin uso
  	jr $ra		
  	
-newcaterogy:
+newcategory:
 	addiu $sp, $sp, -4
  	sw $ra, 4($sp)		
+ 	
  	la $a0, catName	   	# Texto: "Ingrese el nombre de una categoría"
  	jal getblock		# Bloque de texto para cargar nombre de categoría u objeto
  	move $a2, $v0 	  	# $a2 = Puntero al nombre de la categoría (Utilizará addnode)
@@ -141,7 +148,7 @@ nextcategory:
 	beq $t0, $t1 error202  	# Si ambos registros son la misma categoría Salto a error202
 	j fincategory
 
-prevcaterogy:
+prevcategory:
 	lw $t0, wclist		# Carga en $t0 el valor de wclist
 	beqz $t0, error201 	# verifica si la lista esta creada
 	lw $t1, 0($t0)  	# Carga en $t1 el puntero al nodo anterior
@@ -153,13 +160,15 @@ fincategory:
 	la $a0, selCat		# "\nSe ha seleccionado la categoria:"
 	syscall	
 	sw $t1, wclist		# Actualiza la dirección actual de la lista
+        
         lw $a0, 8($t1)		# Muestra en pantalla el nombre de la categoría actual
         li $v0, 4		# Llamada a sistema para mostrar en pantalla
         syscall
+        
         la $a0, return		#"\n"
         li $v0, 4		# Llamada a sistema para mostrar en pantalla
         syscall
-	
+        	
 	li $v0, 0	 	# return success
 	jr $ra		
 
@@ -224,26 +233,35 @@ finlistado:
 
 ###
 
-delcaterogy:
+delcategory:
 	# Continuar
 	jr $ra
-#---------------------------OBRERO TRABAJANDO------------------------------------------#
+
 newobject:
-	# Continuar
+
+
 	addiu $sp, $sp, -4	#Solicita espacio en el Stack
  	sw $ra, 4($sp)		#Almacena $ra
  	
- 	lw $t0, wclist 		# $t0 = wclist
- 	beqz $t0, error501	# Si la lista de objetos está vacía: Error501		
+ 	lw $s0, wclist 		# $s0 = wclist
+ 	beqz $s0, error501	# Si la lista de objetos está vacía: Error501		
  	
  	la $a0, objName	   	# Texto: "\nIngrese el nombre de un objeto: "
- 	jal getblock		# Bloque de texto para cargar nombre de categoría u objeto
+ 	jal getblock		# Bloque para cargar nombre de categoría u objeto
  	move $a2, $v0 	  	# $a2 = Puntero al bloque nuevo (Utilizará addnode)
 
-	la $a0, 4($t0)		#Carga en $a0 el puntero al segundo bloque(Puntero a ID)
-	lw $t1, ($a0)		#Carga en $t1 el contenido de dicho segundo bloque
+# a0: Puntero de la etiqueta(en este caso del objeto)
+# a1: Identificador o puntero a otra listaNULL if category, node address if object
+# a2: Puntero al nombre // *char to category name
+# v0: node address added
+
+	la $a0, 4($s0)		#Carga en $a0 el puntero al segundo bloque(Puntero a ID, addnode)
+	lw $t0, ($a0)		#Carga en $t0 el contenido de dicho segundo bloque	
 	
-	beqz $t1, primerObjeto	#Evalúa si ese contendio es null settear 1 al ID, sinó sumar sumar 1 a $a1
+	beqz $t0, primerObjeto	#Evalúa si ese contendio es null settear 1 al ID, sinó sumar sumar 1 a $a1
+
+	lw $t0, ($t0)		#Puntero al anterior nodo
+	lw $a1, 4($t0)		#Se carga en $a1 el identificador correspondiente
 	addi $a1, $a1, 1	#Si No es null simplemente hace +1 al ID 
 	jal addnode		#Creación de nodo
 	j finObjeto		#Salto al final de objeto
@@ -261,20 +279,72 @@ primerObjeto:
 	li $a1, 1		#Establece el primer ID a 1
 	jal addnode		#Creación de nodo
 
-finObjeto:	
+finObjeto:
+
+
 	lw $ra, 4($sp)		#Devuelve el $ra original
 	addiu $sp, $sp, 4	#Devuelve memoria
 	
 	li $v0, 0		# return success
 	jr $ra
 	
-#---------------------FIN DE TRABAJO DE OBRERO------------------------------------------#
+#---------------------------OBRERO TRABAJANDO------------------------------------------#
 listobjects:
 	# Continuar
+
+	lw $t0, wclist		
+	beqz $t0, error602
+	
+	lw $t1, 4($t0)		#carga en $t1 el ID
+	beqz $t1, error601	#Si no hay objetos saltar a error601
+	
+	move $t2, $t1		#Copia en $t1 el registro de $t2
+	move $t0, $t1
+bucle2:	
+	li $v0, 1
+	lw $a0, 4($t0)
+	syscall
+	
+	li $v0, 4
+	la $a0, puntoespacio
+	syscall
+	
+	li $v0, 4
+	lw $a0, 8($t0)
+	syscall
+
+	lw $t0, 12($t0)
+	
+	beq $t0, $t2, finlistobjects
+	j bucle2
+	
+
 	
 	
+error601: 			# Error 601, no existen categorías		
+	li $v0, 4		# Muestra en pantalla mensaje
+	la $a0, error		# Carga la etiqueta de "Error: "
+	syscall
+	li $v0, 1		# Muestra en pantalla el número
+	li $a0, 601		# Carga el número del error "601"
+	syscall
 	jr $ra
 
+error602:			# Error 602, no existen categorías
+	li $v0, 4		# Muestra en pantalla mensaje
+	la $a0, error		# Carga la etiqueta de "Error: "
+	syscall
+	li $v0, 1		# Muestra en pantalla el número
+	li $a0, 602		# Carga el número del error "602"
+	syscall
+	jr $ra
+	
+finlistobjects:
+	li $v0, 0		# return success
+	jr $ra
+	
+	
+#---------------------FIN DE TRABAJO DE OBRERO------------------------------------------#
 delobject:
 	# Continuar
 	jr $ra
@@ -288,7 +358,7 @@ delobject:
 # a1: Identificador o puntero a otra listaNULL if category, node address if object
 # a2: Puntero al nombre // *char to category name
 # v0: node address added
-
+# t0 y- t1 : puntero al anterior nodo 
 addnode:#gestión de las listas enlazadas, agrega elementos a las listas de categorías u objetos
  	addi $sp, $sp, -8	#Solicita 2 words
  	sw $ra, 8($sp)		#Guarda la dirección de $ra en el stack
@@ -297,7 +367,7 @@ addnode:#gestión de las listas enlazadas, agrega elementos a las listas de categ
  	jal smalloc		
  	
  	sw $a1, 4($v0) 		#Guarda puntero de la otra categoría o ID del objeto
- 	sw $a2, 8($v0)		#Guarda nombre.
+ 	sw $a2, 8($v0)		#Guarda puntero del nombre.
 
   	lw $a0, 4($sp)		#Devuelve puntero a $a0
  	lw $t0, ($a0) 		#Carga en $t0 el primer bloque del nodo (Puntero al anterior nodo)
