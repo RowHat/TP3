@@ -3,7 +3,8 @@ slist: .word 0
 cclist: .word 0
 wclist: .word 0
 schedv: .space 32
-menu: .ascii "\nColecciones de objetos categorizados\n"
+menu: .ascii "\n===================================="
+ .ascii "\nColecciones de objetos categorizados\n"
  .ascii "====================================\n"
  .ascii "1-Nueva categoria\n"
  .ascii "2-Siguiente categoria\n"
@@ -22,7 +23,8 @@ catName: .asciiz "\nIngrese el nombre de una categoria: "
 selCat: .asciiz "\nSe ha seleccionado la categoria: "
 idObj: .asciiz "\nIngrese el ID del objeto a eliminar: "
 objName: .asciiz "\nIngrese el nombre de un objeto: "
-success: .asciiz "La operación se realizo con exito\n\n"
+success: .asciiz "\n        *Operación exitosa*"
+objetosCreados: .asciiz "\n Lista de objetos creados: \n"
 puntoespacio: .asciiz ". "
 
 
@@ -139,6 +141,11 @@ newcategory_end:
  	li $v0, 0	 	# return success
  	lw $ra, 4($sp)
  	addiu $sp, $sp, 4
+ 	li $v0, 4
+	la $a0, success		#"*Operación exitosa*"
+	syscall
+
+	li $v0, 0 		# Return succes	 
  	jr $ra
  	
 nextcategory:
@@ -168,7 +175,11 @@ fincategory:
         la $a0, return		#"\n"
         li $v0, 4		# Llamada a sistema para mostrar en pantalla
         syscall
-        	
+	
+	li $v0, 4
+	la $a0, success		#"*Operación exitosa*"
+	syscall
+	        	
 	li $v0, 0	 	# return success
 	jr $ra		
 
@@ -228,15 +239,63 @@ error301:			# Error 301, no existen categorías
 
 
 finlistado:
+	li $v0, 4
+	la $a0, success		#"*Operación exitosa*"
+	syscall
+
 	li $v0, 0	 	# return success
 	jr $ra
 
 ###
-
+#---------------------------OBRERO TRABAJANDO------------------------------------------#
 delcategory:
 	# Continuar
+	la $s0, wclist		#Se carga en $t0 el puntero de wclist
+	lw $s1, ($s0)		#Carga en $t1 wclista
+	beqz $s1, error401	#Si está vacía Error 401
+	
+	lw $s2, 4($s1)
+	beqz $s2, borrarSoloCat	
+	
+	j finDelcat
+	
+borrarSoloCat:
+	lw $t0, cclist 		# Dirección del nodo cclist 
+	lw $t0, 12($t0)		# Dirección al siguiente nodo de cclist
+	sw $t0, cclist		# Actualiza la dirección de cclist al siguiente nodo
+	
+	move $a0, $t1		# En $a0 se guardará el nodo
+	move $a1, $t0		# en $a1 se guardará la dirección 
+	
+	addi $sp, $sp, -4
+	sw $ra, ($sp)
+	
+	jal delnode
+	
+	move $t0, $s0		# brindamos a $t0 la dirección al puntero wclist
+	lw $t1, ($s0)
+	beqz $t1, finDelcat
+	
+	
+	
+error401:
+	li $v0, 4		# Muestra en pantalla mensaje
+	la $a0, error		# Carga la etiqueta de "Error: "
+	syscall
+	li $v0, 1		# Muestra en pantalla el número
+	li $a0, 401		# Carga el número del error "401"
+	syscall
+	
+	
 	jr $ra
-
+	
+finDelcat:
+	
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
+	jr $ra	
+	
+#---------------------FIN DE TRABAJO DE OBRERO------------------------------------------#
 newobject:
 
 
@@ -263,6 +322,7 @@ newobject:
 	lw $t0, ($t0)		#Puntero al anterior nodo
 	lw $a1, 4($t0)		#Se carga en $a1 el identificador correspondiente
 	addi $a1, $a1, 1	#Si No es null simplemente hace +1 al ID 
+
 	jal addnode		#Creación de nodo
 	j finObjeto		#Salto al final de objeto
 
@@ -280,42 +340,47 @@ primerObjeto:
 	jal addnode		#Creación de nodo
 
 finObjeto:
-
-
+	
 	lw $ra, 4($sp)		#Devuelve el $ra original
 	addiu $sp, $sp, 4	#Devuelve memoria
 	
+	li $v0, 4
+	la $a0, success		#"*Operación exitosa*"
+	syscall
+	 
 	li $v0, 0		# return success
 	jr $ra
 	
-#---------------------------OBRERO TRABAJANDO------------------------------------------#
-listobjects:
-	# Continuar
 
+listobjects:
 	lw $t0, wclist		
 	beqz $t0, error602
 	
-	lw $t1, 4($t0)		#carga en $t1 el ID
-	beqz $t1, error601	#Si no hay objetos saltar a error601
+	lw $t1, 4($t0)		# Carga en $t1 el ID
+	beqz $t1, error601	# Si no hay objetos saltar a error601
 	
-	move $t2, $t1		#Copia en $t1 el registro de $t2
-	move $t0, $t1
+	move $t0, $t1	
+	
+	li $v0, 4
+	la $a0, objetosCreados
+	syscall	
+	
 bucle2:	
-	li $v0, 1
-	lw $a0, 4($t0)
+	li $v0, 1		# Mostrar entero
+	lw $a0, 4($t0)		# carga ID 
 	syscall
 	
-	li $v0, 4
-	la $a0, puntoespacio
+	li $v0, 4		# Mostrar String
+	la $a0, puntoespacio	# Imprime separador
 	syscall
 	
-	li $v0, 4
-	lw $a0, 8($t0)
+	li $v0, 4		# Mostrar String
+	lw $a0, 8($t0)		# Imprime el nombre del objeto
 	syscall
 
-	lw $t0, 12($t0)
+	lw $t0, 12($t0)		# $t0 apunta al siguiente nodo
 	
-	beq $t0, $t2, finlistobjects
+	beq $t0, $t1, finlistobjects	# Comprobación de fin de bucle, Si el registro es el mismo que el inicial termina el bucle
 	j bucle2
 	
 
@@ -340,11 +405,16 @@ error602:			# Error 602, no existen categorías
 	jr $ra
 	
 finlistobjects:
+
+	li $v0, 4
+	la $a0, success		#"*Operación exitosa*"
+	syscall
+	 
 	li $v0, 0		# return success
 	jr $ra
 	
 	
-#---------------------FIN DE TRABAJO DE OBRERO------------------------------------------#
+
 delobject:
 	# Continuar
 	jr $ra
@@ -393,24 +463,28 @@ addnode_exit:
  	lw $ra, 8($sp)
  	addi $sp, $sp, 8
  	jr $ra
- # a0: node address to delete
- # a1: list address where node is deleted
+
+ # a0: node address to delete // lw 
+ # a1: list address where node is deleted // la
 
 delnode:
  	addi $sp, $sp, -8	# Solicitud de dos words
- 	sw $ra, 8($sp)		#Primer espacio paara $ra
+ 	sw $ra, 8($sp)		# Primer espacio para $ra
  	sw $a0, 4($sp)		# Guardamos $a0 en el siguiente espacio
+ 	
  	lw $a0, 8($a0) 		# get block address #Borra el nombre de categoría u objeto
- 	jal sfree 	# free block
- 	lw $a0, 4($sp) 	# restore argument a0
- 	lw $t0, 12($a0) # get address to next node of a0 node
- 	beq $a0, $t0, delnode_point_self
- 	lw $t1, 0($a0) 	# get address to prev node
- 	sw $t1, 0($t0)
+ 	jal sfree 		# free block
+ 	
+ 	lw $a0, 4($sp) 		# restore argument a0
+ 	lw $t0, 12($a0) 	# get address to next node of a0 node
+ 	beq $a0, $t0, delnode_point_self #Evalúa si es un nodo único dentro del listado
+ 	
+ 	lw $t1, 0($a0) 		# get address to prev node
+ 	sw $t1, 0($t0)	
  	sw $t0, 12($t1)
- 	lw $t1, 0($a1) 	# get address to first node again
+ 	lw $t1, 0($a1) 		# get address to first node again
  	bne $a0, $t1, delnode_exit
- 	sw $t0, ($a1) 	# list point to next node
+ 	sw $t0, ($a1) 		# list point to next node
  	j delnode_exit
 
 delnode_point_self:
