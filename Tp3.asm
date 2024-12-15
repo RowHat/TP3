@@ -211,7 +211,7 @@ listcategories:
 	lw $t0, wclist		# Cargamos la lista de las categorías 
 	beqz $t0, error301	# Si no está creada la lista saltar a error301
 	move $t1, $t0		# Copia de dirección del nodo inicial
-		
+	
 	li $v0, 4		# Imprimir en pantalla
 	la $a0, simbolo		# "> "
 	syscall
@@ -255,7 +255,7 @@ finlistado:
 delcategory:
 	# Continuar
 	la $s0, wclist		#Se carga en $t0 el puntero de wclist
-	lw $s1, ($s0)		#Carga en $t1 wclista
+	lw $s1, wclist		#Carga en $t1 wclist
 	beqz $s1, error401	#Si está vacía Error 401
 	
 	lw $s2, 4($s1)
@@ -277,17 +277,31 @@ borrarSoloCat:
 	lw $t0, 12($t0)		# Dirección al siguiente nodo de cclist
 	sw $t0, cclist		# Actualiza la dirección de cclist al siguiente nodo
 	
-	move $a0, $s1		# En $a0 se guardará el nodo
-	move $a1, $s0		# en $a1 se guardará la dirección 
+	lw $a0, wclist		# En $a0 se guardará el nodo
+	la $a1, wclist		# en $a1 se guardará la dirección 
 	
 	addi $sp, $sp, -4
 	sw $ra, ($sp)
 	
 	jal delnode
 	
-	move $t0, $s0		# brindamos a $t0 la dirección al puntero wclist
-	lw $t1, ($t0)		# cargamos contenido de cclist
-	beqz $t1, finDelcat	
+	#move $t0, $s0		# brindamos a $t0 la dirección al puntero wclist
+	lw $t1, ($s0)		# cargamos contenido de wclist
+	beqz $t1, ceroCclist	
+	
+finDelcat:
+
+	li $v0, 4
+	la $a0, success		#"*Operación exitosa*"
+	syscall
+
+	li $v0, 0
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
+	jr $ra
+		
+ceroCclist:	
+	
 	sw $0, cclist
 	
 	j finDelcat
@@ -304,21 +318,28 @@ error401:
 	
 	jr $ra
 	
-finDelcat:
 
 
-	lw $ra, ($sp)
-	addi $sp, $sp, 4
-	jr $ra	
 	
 
 newobject:
-
+#Mostrar objetos para que el usuario vea cuales hay antes de crearlos
+ 	lw $s0, wclist 		# $s0 = wclist
+ 	lw $s1,4($s0)		# Carga en $s1 el ID del objeto
+ 	
+ 	beqz $s1, saltarlistado	#Si no hay objetos no muestra listado	
+	addi $sp, $sp, -4
+	sw $ra, ($sp)
+	jal listobjects
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
+	
+saltarlistado:
 
 	addiu $sp, $sp, -4	#Solicita espacio en el Stack
  	sw $ra, 4($sp)		#Almacena $ra
  	
- 	lw $s0, wclist 		# $s0 = wclist
+
  	beqz $s0, error501	# Si la lista de objetos está vacía: Error501		
  	
  	la $a0, objName	   	# Texto: "\nIngrese el nombre de un objeto: "
@@ -365,6 +386,7 @@ finObjeto:
 	syscall
 	 
 	li $v0, 0		# return success
+	j listobjects
 	jr $ra
 	
 
@@ -374,7 +396,7 @@ listobjects:
 	
 	lw $t1, 4($t0)		# Carga en $t1 el ID
 	beqz $t1, error601	# Si no hay objetos saltar a error601
-	
+				
 	move $t0, $t1	
 	
 	li $v0, 4
@@ -422,9 +444,9 @@ error602:			# Error 602, no existen categorías
 	
 finlistobjects:
 
-	li $v0, 4
-	la $a0, success		#"*Operación exitosa*"
-	syscall
+#	li $v0, 4
+#	la $a0, success		#"*Operación exitosa*"
+#	syscall
 	 
 	li $v0, 0		# return success
 	jr $ra
@@ -432,6 +454,7 @@ finlistobjects:
 	
 
 delobject:
+
         lw  $t0, wclist
         bne $t0, $0, verificarObjP1   #Si hay objetos saltar a verificarObjP1
         la $a0, error
@@ -453,6 +476,12 @@ verificarObjP1:
         jr      $ra
 
 consultarID:
+
+	addi $sp, $sp, -4
+	sw $ra, ($sp)
+	jal listobjects
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
 
         la $a0, idObj		#"Ingrese el objeto a eliminar"
         li $v0, 4
@@ -482,6 +511,10 @@ hayObj:
         jal delnode
 
 finDelobj:
+
+	li $v0, 4
+	la $a0, success		#"*Operación exitosa*"
+	syscall
 
         lw $ra, ($sp)
         addi $sp, $sp, 4
