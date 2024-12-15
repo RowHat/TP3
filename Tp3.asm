@@ -26,6 +26,7 @@ objName: .asciiz "\nIngrese el nombre de un objeto: "
 success: .asciiz "\n        *Operación exitosa*"
 objetosCreados: .asciiz "\n Lista de objetos creados: \n"
 puntoespacio: .asciiz ". "
+noObj: .asciiz "\n Objeto no encontrado. \n"
 
 
 .text 
@@ -138,12 +139,15 @@ newcategory:
  	sw $v0, wclist 		# Actualiza la dirección de wclist si esta era NULL/0
 
 newcategory_end:
- 	li $v0, 0	 	# return success
+
+ 
+   	li $v0, 0	 	# return success
  	lw $ra, 4($sp)
  	addiu $sp, $sp, 4
  	li $v0, 4
 	la $a0, success		#"*Operación exitosa*"
 	syscall
+
 
 	li $v0, 0 		# Return succes	 
  	jr $ra
@@ -179,7 +183,8 @@ fincategory:
 	li $v0, 4
 	la $a0, success		#"*Operación exitosa*"
 	syscall
-	        	
+
+	        		        		        	
 	li $v0, 0	 	# return success
 	jr $ra		
 
@@ -246,8 +251,7 @@ finlistado:
 	li $v0, 0	 	# return success
 	jr $ra
 
-###
-#---------------------------OBRERO TRABAJANDO------------------------------------------#
+
 delcategory:
 	# Continuar
 	la $s0, wclist		#Se carga en $t0 el puntero de wclist
@@ -256,16 +260,25 @@ delcategory:
 	
 	lw $s2, 4($s1)
 	beqz $s2, borrarSoloCat	
+##borrado de objetos en caso de existir
+	addi $t2, $s1, 4	# Carga en $t2 la dirección de objetos
+
+whileObjdel:
+	lw $t3, ($t2)		# carga en $t3 el contenido id de objetos
+	beqz $t3, borrarSoloCat	#verifica si existen objetos
+	move    $a0, $t3        # mueve a $a0 dirección del nodo
+        move    $a1, $t2        # mueve a $a0 la dirección de la lista staset list address
+        jal     delnode                    
+        j       whileObjdel
 	
-	j finDelcat
 	
 borrarSoloCat:
 	lw $t0, cclist 		# Dirección del nodo cclist 
 	lw $t0, 12($t0)		# Dirección al siguiente nodo de cclist
 	sw $t0, cclist		# Actualiza la dirección de cclist al siguiente nodo
 	
-	move $a0, $t1		# En $a0 se guardará el nodo
-	move $a1, $t0		# en $a1 se guardará la dirección 
+	move $a0, $s1		# En $a0 se guardará el nodo
+	move $a1, $s0		# en $a1 se guardará la dirección 
 	
 	addi $sp, $sp, -4
 	sw $ra, ($sp)
@@ -273,9 +286,11 @@ borrarSoloCat:
 	jal delnode
 	
 	move $t0, $s0		# brindamos a $t0 la dirección al puntero wclist
-	lw $t1, ($s0)
-	beqz $t1, finDelcat
+	lw $t1, ($t0)		# cargamos contenido de cclist
+	beqz $t1, finDelcat	
+	sw $0, cclist
 	
+	j finDelcat
 	
 	
 error401:
@@ -290,12 +305,13 @@ error401:
 	jr $ra
 	
 finDelcat:
-	
+
+
 	lw $ra, ($sp)
 	addi $sp, $sp, 4
 	jr $ra	
 	
-#---------------------FIN DE TRABAJO DE OBRERO------------------------------------------#
+
 newobject:
 
 
@@ -416,10 +432,61 @@ finlistobjects:
 	
 
 delobject:
-	# Continuar
-	jr $ra
+        lw  $t0, wclist
+        bne $t0, $0, verificarObjP1   #Si hay objetos saltar a verificarObjP1
+        la $a0, error
+        li $v0, 4
+        syscall
+        li $v0, 701
+        jr $ra
+
+verificarObjP1:
+        addi $t5, $t0, 4                 # coloca en $t5 la dirección de id del objeto
+        lw $t0, 4($t0)                 # Carga en $t0 el ID del objeto
+        bne $t0, $0, consultarID            #Si es 0 entonces no hay objetos. Sinó saltar a ConsultarID
+        la $a0, error
+        li $v0, 4
+        syscall
+        li $a0, 702
+        li $v0, 1
+        syscall
+        jr      $ra
+
+consultarID:
+
+        la $a0, idObj		#"Ingrese el objeto a eliminar"
+        li $v0, 4
+        syscall
+        li $v0, 5		#Espera al usuario para que ingrese el valor
+        syscall
+        move $t7, $v0		# Mueve a $t7 el numero que ingresa el usuario
+
+        move $t1, $t0           # Copia del primer valor para verificación del bucle 
+
+verificarObjP2: 
+        lw $t6, 4($t0)          # Carga en $t6 el ID
+        beq $t6, $t7, hayObj    # Compara si lo ingresado por el usuario existe
+        lw $t0, 12($t0)         # En caso de no existir busca en el siguiente nodo
+        beq $t1, $t0, noHayObj	
+        j verificarObjP2
+
+noHayObj:
+        la $a0, noObj		#" Objeto no encontrado."
+        li $v0, 4
+        syscall
+        j finDelobj
+
+hayObj:
+        move $a0, $t0           # Dirección del nodo a eliminar
+        move $a1, $t5           # dirección de la lista del objeto a eliminar
+        jal delnode
+
+finDelobj:
+
+        lw $ra, ($sp)
+        addi $sp, $sp, 4
+        jr $ra
 	
-#Faltan mensajes de error para implementar
 
 
 # "ANEXO"
@@ -469,7 +536,7 @@ addnode_exit:
 
 delnode:
  	addi $sp, $sp, -8	# Solicitud de dos words
- 	sw $ra, 8($sp)		# Primer espacio para $ra
+ 	sw $ra, ($sp)		# Primer espacio para $ra
  	sw $a0, 4($sp)		# Guardamos $a0 en el siguiente espacio
  	
  	lw $a0, 8($a0) 		# get block address #Borra el nombre de categoría u objeto
@@ -492,7 +559,7 @@ delnode_point_self:
 
 delnode_exit:
  	jal sfree
- 	lw $ra, 8($sp)
+ 	lw $ra, ($sp)
  	addi $sp, $sp, 8
  	jr $ra
 	
